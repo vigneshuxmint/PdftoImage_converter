@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF to JPEG Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      text-align: center;
+    }
+    #output img {
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>PDF to JPEG Converter</h1>
+  <input type="file" id="fileInput" accept="application/pdf">
+  <div id="output"></div>
+
+  <script>
+    document.getElementById('fileInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file || file.type !== 'application/pdf') {
+        alert('Please upload a valid PDF file.');
+        return;
+      }
+
+      const outputDiv = document.getElementById('output');
+      outputDiv.innerHTML = 'Processing...';
+
+      const fileReader = new FileReader();
+      const images = []; // Array to store all generated images
+
+      fileReader.onload = async function () {
+        const pdfData = new Uint8Array(this.result);
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+        const pdf = await loadingTask.promise;
+
+        outputDiv.innerHTML = ''; // Clear output
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          console.log(`Processing page ${pageNum}`);
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1 });
+
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          const renderContext = {
+            canvasContext: context,
+            viewport: viewport,
+          };
+          await page.render(renderContext).promise;
+
+          const jpegData = canvas.toDataURL('image/jpeg');
+          images.push({ data: jpegData, pageIndex: pageNum }); // Store image with its page index
+
+          const img = document.createElement('img');
+          img.src = jpegData;
+          img.alt = `Page ${pageNum}`;
+          outputDiv.appendChild(img);
+        }
+
+        // After processing all pages, send images to backend
+        console.log('All pages processed. Uploading...');
+        await sendImagesToBackend(images);
+      };
+
+      fileReader.readAsArrayBuffer(file);
+    });
+    async function sendImagesToBackend(images) {
+        try {
+            const formData = new FormData();
+            const folderName = `pdf-${Date.now()}`; // Unique folder name based on timestamp
+            formData.append('folderName', folderName);
+
+            for (const image of images) {
+            const blob = await fetch(image.data).then((res) => res.blob());
+            formData.append('images', blob, `page-${image.pageIndex}.jpeg`);
+            }
+
+            const response = await fetch('http://localhost:3000/upload-folder', {
+            method: 'POST',
+            body: formData,
+            });
+
+            if (!response.ok) {
+            const errorText = await response.text(); // Capture server response
+            throw new Error(`Failed to upload folder: ${errorText}`);
+            }
+
+            console.log('Folder uploaded successfully');
+            alert('All pages uploaded successfully.');
+        } catch (error) {
+            console.error('Error uploading folder:', error);
+            alert('Error uploading folder.');
+        }
+}
+
+    
+    </script>
+</body>
+</html>
