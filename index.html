@@ -45,7 +45,7 @@
         outputDiv.innerHTML = ''; // Clear output
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          console.log(`Processing page ${pageNum}`);
+          console.log(`Processing page ${pageNum}`); 
           const page = await pdf.getPage(pageNum);
           const viewport = page.getViewport({ scale: 1 });
 
