@@ -21,36 +21,36 @@ const s3 = new AWS.S3({
 
 // Space and folder setup
 const bucketName = 'uxmintassets';  // Space name
-const targetFolder = 'pdf2jpeg';    // Folder inside the Space
+const targetFolder = 'pdf-uploads'; // Folder for PDFs
 
-// Handle POST request to upload files
-app.post('/upload-folder', upload.array('images'), async (req, res) => {
-    const files = req.files;
+// Handle POST request to upload PDF file
+app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
+    const file = req.file;
 
-    if (!files || files.length === 0) {
-        return res.status(400).send('No images provided.');
+    if (!file || file.mimetype !== 'application/pdf') {
+        return res.status(400).send('Invalid file. Please upload a PDF.');
     }
 
     try {
-        // Upload each file to the Space under the pdf2jpeg folder
-        for (const file of files) {
-            const filePath = `${targetFolder}/${file.originalname}`;
-            const params = {
-                Bucket: bucketName,
-                Key: filePath,
-                Body: file.buffer,
-                ACL: 'public-read',  // Optional: Make public
-                ContentType: file.mimetype,
-            };
+        const uniqueFileName = `${targetFolder}/pdf-${Date.now()}-${file.originalname}`;
+        const params = {
+            Bucket: bucketName,
+            Key: uniqueFileName,
+            Body: file.buffer,
+            ACL: 'public-read',  // Optional: Make public
+            ContentType: file.mimetype,
+        };
 
-            const uploadResult = await s3.upload(params).promise();
-            console.log(`Uploaded: ${uploadResult.Location}`);
-        }
+        const uploadResult = await s3.upload(params).promise();
+        console.log(`Uploaded: ${uploadResult.Location}`);
 
-        res.json({ message: `Files uploaded successfully to '${targetFolder}'.` });
+        res.json({
+            message: 'PDF uploaded successfully.',
+            fileUrl: uploadResult.Location,
+        });
     } catch (error) {
-        console.error('Error uploading files:', error);
-        res.status(500).send('Failed to upload files.');
+        console.error('Error uploading PDF:', error);
+        res.status(500).send('Failed to upload PDF.');
     }
 });
 
