@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors'); // Import the cors middleware
 const multer = require('multer');
 const AWS = require('aws-sdk');
 const path = require('path');
@@ -7,6 +8,9 @@ const { Pool } = require('pg'); // PostgreSQL package
 
 const app = express();
 require('dotenv').config();
+
+// Enable CORS for all origins
+app.use(cors());
 
 // Multer setup for file uploads (memory storage)
 const storage = multer.memoryStorage();
