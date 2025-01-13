@@ -32,7 +32,7 @@
         const formData = new FormData();
         const uniqueFileName = `pdf-${Date.now()}.pdf`; // Unique file name
 
-        formData.append('pdf', file, uniqueFileName);
+        formData.append('pdf', file);
 
         const response = await fetch('http://localhost:3000/upload-pdf', {
           method: 'POST',

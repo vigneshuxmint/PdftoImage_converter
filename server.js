@@ -83,6 +83,35 @@ app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
     }
 });
 
+
+
+
+app.get('/evaluations/:student_id', async (req, res) => {
+    const { student_id } = req.params;
+
+    try {
+        const query = `
+            SELECT *
+            FROM evaluations
+            WHERE student_id = $1;
+        `;
+
+        const result = await pool.query(query, [student_id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'No evaluations found for this student ID.' });
+        }
+
+        res.json({
+            message: 'Evaluations retrieved successfully.',
+            evaluations: result.rows, // Return rows as JSON
+        });
+    } catch (error) {
+        console.error('Error fetching evaluations:', error);
+        res.status(500).send('Failed to fetch evaluations.');
+    }
+});
+
 // Start server
 const PORT = 3009;
 app.listen(PORT, () => {
