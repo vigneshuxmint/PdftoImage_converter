@@ -5,12 +5,19 @@ const AWS = require('aws-sdk');
 const path = require('path');
 const fs = require('fs');
 const { Pool } = require('pg'); // PostgreSQL package
-
+const https = require('https');
+const options = {
+    key: fs.readFileSync('/private.pem'), // Replace with the private key path
+    cert: fs.readFileSync('/origin.pem'), // Replace with the certificate path
+  };
+  
 const app = express();
 require('dotenv').config();
 
 // Enable CORS for all origins
 app.use(cors());
+
+
 
 // Multer setup for file uploads (memory storage)
 const storage = multer.memoryStorage();
@@ -149,7 +156,6 @@ app.get('/evaluations/:student_id', async (req, res) => {
 });
 
 // Start server
-const PORT = 3009;
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+https.createServer(options, app).listen(443, () => {
+    console.log('HTTPS server running on port 443');
+  });
