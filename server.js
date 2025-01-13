@@ -30,114 +30,91 @@ const targetFolder = 'pdf-uploads'; // Folder for PDFs
 
 // PostgreSQL Database Config
 const pool = new Pool({
-    user: 'admin',
-    host: '68.183.88.156',
-    database: 'octa',
-    password: 'admin',
+    user: 'root',
+    host: '165.232.185.65',
+    database: 'n8n',
+    password: 'password',
     port: 5432,
 });
 
 // Handle POST request to upload PDF file
-app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
-    console.log("called")
-    const file = req.file;
+app.post('/upload-pdf', upload.fields([
+    { name: 'pdf', maxCount: 1 },
+    { name: 'images', maxCount: 20 }, // Adjust maxCount as needed
+]), async (req, res) => {
+    const pdfFile = req.files?.pdf?.[0];
+    const images = req.files?.images;
+    const folderName = req.body.folderName || `folder-${Date.now()}`;
 
-    if (!file || file.mimetype !== 'application/pdf') {
-        return res.status(400).send('Invalid file. Please upload a PDF.');
+    if (!pdfFile || pdfFile.mimetype !== 'application/pdf') {
+        return res.status(400).send('Invalid or missing PDF file.');
+    }
+
+    if (!images || images.length === 0) {
+        return res.status(400).send('No images provided.');
     }
 
     try {
-        // Generate unique filename and upload to DigitalOcean Spaces
-        const uniqueFileName = `${targetFolder}/pdf-${Date.now()}-${file.originalname}`;
-        const params = {
+        // 1. Upload PDF file to DigitalOcean Spaces
+        const pdfUniqueFileName = `${targetFolder}/pdf-${Date.now()}-${pdfFile.originalname}`;
+        const pdfParams = {
             Bucket: bucketName,
-            Key: uniqueFileName,
-            Body: file.buffer,
-            ACL: 'public-read', // Optional: Make public
-            ContentType: file.mimetype,
+            Key: pdfUniqueFileName,
+            Body: pdfFile.buffer,
+            ACL: 'public-read',
+            ContentType: pdfFile.mimetype,
         };
 
-        const uploadResult = await s3.upload(params).promise();
-        console.log(`Uploaded: ${uploadResult.Location}`);
+        const pdfUploadResult = await s3.upload(pdfParams).promise();
+        console.log(`Uploaded PDF: ${pdfUploadResult.Location}`);
 
-        // Insert into PostgreSQL database
-        const query = `
-            INSERT INTO uploads (uploadid, activityid, fileurl)
-            VALUES (
-                (SELECT COALESCE(MAX(uploadid), 0) + 1 FROM uploads), 
-                101, 
-                $1
-            )
-        `;
-        const values = [uploadResult.Location];
-
-        await pool.query(query, values);
-        console.log('PDF link inserted into database.');
-
-        res.json({
-            message: 'PDF uploaded successfully.',
-            fileUrl: uploadResult.Location,
-        });
-    } catch (error) {
-        console.error('Error uploading PDF:', error);
-        res.status(500).send('Failed to upload PDF.');
-    }
-});
-
-
-
-app.post('/upload-folder', upload.array('images'), async (req, res) => {
-    const folderName = req.body.folderName;
-    const files = req.files;
-
-    if (!folderName || !files || files.length === 0) {
-        return res.status(400).send('No folder name or images provided.');
-    }
-
-    // Directory for local storage (optional)
-    const saveDir = path.join(__dirname, 'uploaded_folders', folderName);
-    if (!fs.existsSync(saveDir)) {
-        fs.mkdirSync(saveDir, { recursive: true });
-        console.log(`Created folder: ${saveDir}`);
-    }
-
-    try {
+      
+        // 2. Process and upload images to DigitalOcean Spaces
         const uploadResults = [];
-
-        for (const file of files) {
-            // Save to local folder (optional)
-            const filePath = path.join(saveDir, file.originalname);
-            fs.writeFileSync(filePath, file.buffer);
-            console.log(`Saved file locally: ${filePath}`);
-
-            // Upload to DigitalOcean Spaces
-            const uniqueFileName = `${folderName}/image-${Date.now()}-${file.originalname}`;
-            const params = {
+        for (const image of images) {
+            const imageUniqueFileName = `${folderName}/image-${Date.now()}-${image.originalname}`;
+            const imageParams = {
                 Bucket: bucketName,
-                Key: uniqueFileName,
-                Body: file.buffer,
-                ACL: 'public-read', // Optional: Make public
-                ContentType: file.mimetype,
+                Key: imageUniqueFileName,
+                Body: image.buffer,
+                ACL: 'public-read',
+                ContentType: image.mimetype,
             };
 
-            const uploadResult = await s3.upload(params).promise();
-            console.log(`Uploaded to DigitalOcean: ${uploadResult.Location}`);
+            const imageUploadResult = await s3.upload(imageParams).promise();
+            console.log(`Uploaded Image: ${imageUploadResult.Location}`);
+
+            // Insert Image URL into PostgreSQL database with the same `pdflink`
+            const imageInsertQuery = `
+                INSERT INTO uploads (uploadid, activityid, fileurl, pdflink)
+                VALUES (
+                    (SELECT COALESCE(MAX(uploadid), 0) + 1 FROM uploads), 
+                    102, 
+                    $1,
+                    $2
+                )
+            `;
+            await pool.query(imageInsertQuery, [imageUploadResult.Location, pdfUploadResult.Location]);
+            console.log(`Image link inserted into database: ${imageUploadResult.Location}`);
 
             uploadResults.push({
-                fileName: file.originalname,
-                fileUrl: uploadResult.Location,
+                fileName: image.originalname,
+                fileUrl: imageUploadResult.Location,
             });
         }
 
+        // Response to client
         res.json({
-            message: `Folder '${folderName}' uploaded successfully.`,
-            uploadedFiles: uploadResults, // Include URLs of uploaded images
+            message: 'PDF and images uploaded successfully.',
+            pdfUrl: pdfUploadResult.Location,
+            images: uploadResults,
         });
     } catch (error) {
-        console.error('Error uploading folder and images:', error);
-        res.status(500).send('Failed to upload folder and images.');
+        console.error('Error uploading files:', error);
+        res.status(500).send('Failed to upload files.');
     }
 });
+
 
 
 
