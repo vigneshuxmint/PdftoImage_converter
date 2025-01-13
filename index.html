@@ -34,10 +34,12 @@
 
         formData.append('pdf', file);
 
-        const response = await fetch('http://localhost:3000/upload-pdf', {
+        const response = await fetch('http://localhost:3009/upload-folder', {
           method: 'POST',
           body: formData,
         });
+
+     
 
         if (!response.ok) {
           const errorText = await response.text();

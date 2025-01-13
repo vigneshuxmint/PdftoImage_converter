@@ -39,6 +39,7 @@ const pool = new Pool({
 
 // Handle POST request to upload PDF file
 app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
+    console.log("called")
     const file = req.file;
 
     if (!file || file.mimetype !== 'application/pdf') {
@@ -82,6 +83,64 @@ app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
         res.status(500).send('Failed to upload PDF.');
     }
 });
+
+
+
+app.post('/upload-folder', upload.array('images'), async (req, res) => {
+    const folderName = req.body.folderName;
+    const files = req.files;
+
+    if (!folderName || !files || files.length === 0) {
+        return res.status(400).send('No folder name or images provided.');
+    }
+
+    // Directory for local storage (optional)
+    const saveDir = path.join(__dirname, 'uploaded_folders', folderName);
+    if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true });
+        console.log(`Created folder: ${saveDir}`);
+    }
+
+    try {
+        const uploadResults = [];
+
+        for (const file of files) {
+            // Save to local folder (optional)
+            const filePath = path.join(saveDir, file.originalname);
+            fs.writeFileSync(filePath, file.buffer);
+            console.log(`Saved file locally: ${filePath}`);
+
+            // Upload to DigitalOcean Spaces
+            const uniqueFileName = `${folderName}/image-${Date.now()}-${file.originalname}`;
+            const params = {
+                Bucket: bucketName,
+                Key: uniqueFileName,
+                Body: file.buffer,
+                ACL: 'public-read', // Optional: Make public
+                ContentType: file.mimetype,
+            };
+
+            const uploadResult = await s3.upload(params).promise();
+            console.log(`Uploaded to DigitalOcean: ${uploadResult.Location}`);
+
+            uploadResults.push({
+                fileName: file.originalname,
+                fileUrl: uploadResult.Location,
+            });
+        }
+
+        res.json({
+            message: `Folder '${folderName}' uploaded successfully.`,
+            uploadedFiles: uploadResults, // Include URLs of uploaded images
+        });
+    } catch (error) {
+        console.error('Error uploading folder and images:', error);
+        res.status(500).send('Failed to upload folder and images.');
+    }
+});
+
+
+
 
 
 
