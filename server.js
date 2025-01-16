@@ -124,6 +124,28 @@ app.post('/upload-pdf', upload.fields([
 
 
 
+app.get('/students', async (req, res) => {
+    try {
+        const query = `
+            SELECT *
+            FROM students;
+        `;
+
+        const result = await pool.query(query);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'No students found.' });
+        }
+
+        res.json({
+            message: 'Students retrieved successfully.',
+            students: result.rows, // Return rows as JSON
+        });
+    } catch (error) {
+        console.error('Error fetching students:', error);
+        res.status(500).send('Failed to fetch students.');
+    }
+});
 
 
 
