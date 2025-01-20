@@ -7,8 +7,8 @@ const fs = require('fs');
 const { Pool } = require('pg'); // PostgreSQL package
 const https = require('https');
 const options = {
-    key: fs.readFileSync('/private.pem'), // Replace with the private key path
-    cert: fs.readFileSync('/origin.pem'), // Replace with the certificate path
+    key: fs.readFileSync('./private.pem'), // Replace with the private key path
+    cert: fs.readFileSync('./origin.pem'), // Replace with the certificate path
   };
   
 const app = express();
@@ -147,6 +147,29 @@ app.get('/students', async (req, res) => {
     }
 });
 
+
+app.get('/activity', async (req, res) => {
+    try {
+        const query = `
+            SELECT *
+            FROM activity_list;
+        `;
+
+        const result = await pool.query(query);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'No activity found.' });
+        }
+
+        res.json({
+            message: 'activity retrieved successfully.',
+            students: result.rows, // Return rows as JSON
+        });
+    } catch (error) {
+        console.error('Error fetching activity:', error);
+        res.status(500).send('Failed to fetch activity.');
+    }
+});
 
 
 
