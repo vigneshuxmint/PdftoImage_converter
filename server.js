@@ -7,6 +7,7 @@ const fs = require('fs');
 const { Pool } = require('pg'); // PostgreSQL package
 const WebSocket = require('ws');
 const axios = require('axios');
+const https = require('https');
 const { PDFDocument } = require('pdf-lib');
 const PDFImage = require('pdf-image').PDFImage; 
 const options = {
@@ -590,7 +591,7 @@ app.post("/ai-output", (req, res) => {
 });
 
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
@@ -638,10 +639,7 @@ app.get('/trigger-all', async (req, res) => {
     }
   });
   
-  server.listen(8080, () => {
-    console.log('WSS Server running on wss://localhost:443');
-  });
-// Start server
+ 
 app.listen(440, () => {
     console.log('HTTPS server running on port 440');
   });
