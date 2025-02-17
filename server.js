@@ -13,6 +13,8 @@ const options = {
     key: fs.readFileSync('./private.pem'), // Replace with the private key path
     cert: fs.readFileSync('./origin.pem'), // Replace with the certificate path
   };
+
+const server = https.createServer(options);
   
 const app = express();
 require('dotenv').config();
@@ -588,7 +590,7 @@ app.post("/ai-output", (req, res) => {
 });
 
 
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
@@ -636,7 +638,9 @@ app.get('/trigger-all', async (req, res) => {
     }
   });
   
-
+  server.listen(8080, () => {
+    console.log('WSS Server running on wss://localhost:443');
+  });
 // Start server
 app.listen(440, () => {
     console.log('HTTPS server running on port 440');
